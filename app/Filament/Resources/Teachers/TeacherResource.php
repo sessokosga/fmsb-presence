@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Teachers;
 
+use App\Filament\Imports\TeacherImporter;
 use App\Filament\Resources\Teachers\Pages\CreateTeacher;
 use App\Filament\Resources\Teachers\Pages\EditTeacher;
 use App\Filament\Resources\Teachers\Pages\ListTeachers;
@@ -10,6 +11,7 @@ use App\Filament\Resources\Teachers\Tables\TeachersTable;
 use App\Models\Teacher;
 use BackedEnum;
 use Filament\Actions;
+use Filament\Actions\ImportAction;
 use Filament\Forms\Components;
 use Filament\Resources\Resource;
 use Filament\Schemas;
@@ -96,7 +98,12 @@ class TeacherResource extends Resource
             ])
             ->recordAction(Actions\EditAction::class)
             ->headerActions([
-                Actions\CreateAction::make(),
+//                Actions\CreateAction::make(),
+                ImportAction::make()
+                    ->importer(TeacherImporter::class)
+                    ->label('Importer des Enseignants')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->color('primary'),
             ]);
     }
 

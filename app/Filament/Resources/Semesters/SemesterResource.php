@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Semesters;
 
+use App\Filament\Imports\SemesterImporter;
 use App\Filament\Resources\Semesters\Pages\CreateSemester;
 use App\Filament\Resources\Semesters\Pages\EditSemester;
 use App\Filament\Resources\Semesters\Pages\ListSemesters;
@@ -9,6 +10,7 @@ use App\Filament\Resources\Semesters\Schemas\SemesterForm;
 use App\Filament\Resources\Semesters\Tables\SemestersTable;
 use App\Models\Semester;
 use BackedEnum;
+use Filament\Actions\ImportAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
@@ -34,6 +36,7 @@ class SemesterResource extends Resource
                         TextInput::make('name')
                             ->label('Nom du Semestre')
                             ->placeholder('Semestre 1')
+                            ->columnSpan(2)
                             ->required(),
                         TextInput::make('code')
                             ->label('Code Court')
@@ -42,13 +45,21 @@ class SemesterResource extends Resource
                         Toggle::make('is_active')
                             ->label('Semestre Actuel')
                             ->onColor('success'),
-                    ])->columns(2)
+                    ])->columns(4)
+                ->columnSpanFull()
             ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
+            ->headerActions([
+                ImportAction::make()
+                    ->importer(SemesterImporter::class)
+                    ->label('Importer des Semestres')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->color('primary'),
+            ])
             ->columns([
                 TextColumn::make('name')->label('Nom'),
                 TextColumn::make('code')

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Students;
 
+use App\Filament\Imports\StudentImporter;
 use App\Filament\Resources\Students\Pages\CreateStudent;
 use App\Filament\Resources\Students\Pages\EditStudent;
 use App\Filament\Resources\Students\Pages\ListStudents;
@@ -14,6 +15,7 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ImportAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -74,7 +76,7 @@ class StudentResource extends Resource
                             ->required(),
                         Select::make('level_id')
                             ->label('Niveau')
-                            ->relationship('level', 'code')
+                            ->relationship('level', 'name')
                             ->default(fn () => \App\Models\Level::first()?->id)
                             ->preload()
                             ->required(),
@@ -100,6 +102,13 @@ class StudentResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->headerActions([
+                ImportAction::make()
+                    ->importer(StudentImporter::class)
+                    ->label('Importer des Etudiants')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->color('primary'),
+            ])
             ->columns([
                 // Matricule mis en avant en gras
                 TextColumn::make('matricule')

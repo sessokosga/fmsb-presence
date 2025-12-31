@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Faculties;
 
+use App\Filament\Imports\FacultyImporter;
 use App\Filament\Resources\Faculties\Pages\CreateFaculty;
 use App\Filament\Resources\Faculties\Pages\EditFaculty;
 use App\Filament\Resources\Faculties\Pages\ListFaculties;
@@ -13,6 +14,7 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ImportAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -45,8 +47,16 @@ class FacultyResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->headerActions([
+                ImportAction::make()
+                    ->importer(FacultyImporter::class)
+                    ->label('Importer des Facultés')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->color('primary'),
+            ])
             ->columns([
                 Tables\Columns\TextColumn::make("name")->searchable(),
+                Tables\Columns\TextColumn::make('code')->label('Code')->badge(), // Le format badge est joli pour les codes
                 Tables\Columns\TextColumn::make("created_at")
                     ->dateTime()
                     ->sortable()

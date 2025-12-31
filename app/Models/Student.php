@@ -9,6 +9,7 @@ class Student extends Model
 {
     protected $guarded = [];
 
+
     /**
      * Un étudiant appartient à un département.
      */

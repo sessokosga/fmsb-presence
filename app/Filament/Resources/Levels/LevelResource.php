@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Levels;
 
+use App\Filament\Imports\LevelImporter;
 use App\Filament\Resources\Levels\Pages\CreateLevel;
 use App\Filament\Resources\Levels\Pages\EditLevel;
 use App\Filament\Resources\Levels\Pages\ListLevels;
@@ -12,6 +13,7 @@ use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ImportAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -45,12 +47,21 @@ class LevelResource extends Resource
                             ->placeholder('L1')
                             ->required(),
                     ])
+                    ->columns(2)
+                ->columnSpanFull()
             ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
+            ->headerActions([
+                ImportAction::make()
+                    ->importer(LevelImporter::class)
+                    ->label('Importer des Niveaux')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->color('primary'),
+            ])
             ->columns([
                 Tables\Columns\TextColumn::make('name')->label('Nom'),
                 Tables\Columns\TextColumn::make('code')->label('Code')->badge(), // Le format badge est joli pour les codes

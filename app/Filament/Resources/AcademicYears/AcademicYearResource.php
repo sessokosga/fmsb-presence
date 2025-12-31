@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\AcademicYears;
 
+use App\Filament\Imports\AcademicYearImporter;
 use App\Filament\Resources\AcademicYears\Pages\CreateAcademicYear;
 use App\Filament\Resources\AcademicYears\Pages\EditAcademicYear;
 use App\Filament\Resources\AcademicYears\Pages\ListAcademicYears;
@@ -12,6 +13,7 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ImportAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -103,7 +105,12 @@ class AcademicYearResource extends Resource
             ])
             ->recordAction(EditAction::class)
             ->headerActions([
-                CreateAction::make(),
+//                CreateAction::make(),
+                ImportAction::make()
+                    ->importer(AcademicYearImporter::class)
+                    ->label('Importer des Années')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->color('primary'),
             ])
             ->recordActions([
                 // Action personnalisée pour définir l'année actuelle en un clic

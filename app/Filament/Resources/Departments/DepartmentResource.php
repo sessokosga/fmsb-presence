@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Departments;
 
+use App\Filament\Imports\DepartmentImporter;
 use App\Filament\Resources\Departments\Pages\CreateDepartment;
 use App\Filament\Resources\Departments\Pages\EditDepartment;
 use App\Filament\Resources\Departments\Pages\ListDepartments;
@@ -13,6 +14,7 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ImportAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -85,10 +87,18 @@ class DepartmentResource extends Resource
                     ->copyable() // Permet de cliquer pour copier le code
                     ->searchable(),
             ])
+
             ->filters([
                 // Permet de filtrer la liste par Faculté
                 Tables\Filters\SelectFilter::make('faculty')
                     ->relationship('faculty', 'name'),
+            ])
+            ->headerActions([
+                ImportAction::make()
+                    ->importer(DepartmentImporter::class)
+                    ->label('Importer Départements')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->color('primary'),
             ])
             ->recordActions([ActionGroup::make([
                 EditAction::make(),
