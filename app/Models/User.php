@@ -54,7 +54,12 @@ class User extends Authenticatable implements FilamentUser
         // return true;
 
         // OPTION 2 : Autoriser seulement votre email admin (Recommandé)
-        return $this->email === 'micheekosga@gmail.com';
+        $admins = [
+            'micheekosga@gmail.com',
+            'admin@test.com',
+        ];
+
+        return in_array($this->email, $admins);
 
         // OPTION 3 : Autoriser tous les emails qui finissent par votre domaine (Pro)
         // return str_ends_with($this->email, '@univ-fmsb.cm');
