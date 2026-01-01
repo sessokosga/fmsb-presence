@@ -3,11 +3,13 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
@@ -44,5 +46,17 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        // OPTION 1 : Autoriser tout le monde (Dangereux, mais utile pour tester 2 minutes)
+        // return true;
+
+        // OPTION 2 : Autoriser seulement votre email admin (Recommandé)
+        return $this->email === 'micheekosga@gmail.com';
+
+        // OPTION 3 : Autoriser tous les emails qui finissent par votre domaine (Pro)
+        // return str_ends_with($this->email, '@univ-fmsb.cm');
     }
 }
