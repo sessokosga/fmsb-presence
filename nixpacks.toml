@@ -1,0 +1,7 @@
+[variables]
+# Définit les extensions PHP à activer dans l'environnement d'exécution
+PHP_EXTENSIONS = "intl, zip, bcmath, gd, opcache, pdo_mysql"
+
+[phases.setup]
+# Installe les bibliothèques système nécessaires au build
+nixPkgs = ["...", "php82Extensions.intl", "php82Extensions.zip"]
