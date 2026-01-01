@@ -1,7 +1,8 @@
 [variables]
-# Définit les extensions PHP à activer dans l'environnement d'exécution
+# On force PHP 8.3 pour satisfaire OpenSpout/Filament
+NIXPACKS_PHP_VERSION = "8.3"
 PHP_EXTENSIONS = "intl, zip, bcmath, gd, opcache, pdo_mysql"
 
 [phases.setup]
-# Installe les bibliothèques système nécessaires au build
-nixPkgs = ["...", "php82Extensions.intl", "php82Extensions.zip"]
+# On installe les extensions pour la version 8.3
+nixPkgs = ["...", "php83Extensions.intl", "php83Extensions.zip"]
