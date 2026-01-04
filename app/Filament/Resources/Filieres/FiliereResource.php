@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Filieres;
 
+use App\Filament\Imports\FiliereImporter;
 use App\Filament\Resources\Filieres\Pages\CreateFiliere;
 use App\Filament\Resources\Filieres\Pages\EditFiliere;
 use App\Filament\Resources\Filieres\Pages\ListFilieres;
@@ -10,6 +11,7 @@ use App\Filament\Resources\Filieres\Tables\FilieresTable;
 use App\Models\Filiere;
 use BackedEnum;
 use Filament\Actions\ActionGroup;
+use Filament\Actions\ImportAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
@@ -44,6 +46,13 @@ class FiliereResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->headerActions([
+                ImportAction::make()
+                    ->importer(FiliereImporter::class)
+                    ->label('Importer des Filières')
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->color('primary'),
+            ])
             ->columns([
                 Tables\Columns\TextColumn::make('department.name') // Affiche le nom du dept
                 ->sortable()

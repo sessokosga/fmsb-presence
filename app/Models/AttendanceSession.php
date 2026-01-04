@@ -16,7 +16,10 @@ class AttendanceSession extends Model
         return $this->belongsTo(Teacher::class);
     }
     // Ajoutez cette méthode dans App\Models\AttendanceSession
-    public function semester()
+    public function academic_year()
+    {
+        return $this->belongsTo(AcademicYear::class);
+    } public function semester()
     {
         return $this->belongsTo(Semester::class);
     }

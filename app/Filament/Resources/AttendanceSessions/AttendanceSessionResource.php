@@ -7,6 +7,7 @@ use App\Filament\Resources\AttendanceSessions\Pages\EditAttendanceSession;
 use App\Filament\Resources\AttendanceSessions\Pages\ListAttendanceSessions;
 use App\Filament\Resources\AttendanceSessions\Schemas\AttendanceSessionForm;
 use App\Filament\Resources\AttendanceSessions\Tables\AttendanceSessionsTable;
+use App\Models\AcademicYear;
 use App\Models\AttendanceSession;
 use BackedEnum;
 use Filament\Actions\CreateAction;
@@ -90,7 +91,7 @@ class AttendanceSessionResource extends Resource
 
                                 return \App\Models\Filiere::where('department_id', $deptId)
                                     ->get()
-                                    ->mapWithKeys(fn ($f) => [$f->id => "{$f->code} - {$f->name}"]);
+                                    ->mapWithKeys(fn($f) => [$f->id => "{$f->code} - {$f->name}"]);
                             })
                             ->searchable()
                             ->live()
@@ -111,7 +112,7 @@ class AttendanceSessionResource extends Resource
                                 }
                             })
                             ->dehydrated(false)
-                            ->disabled(fn (Get $get) => !$get('department_id'))
+                            ->disabled(fn(Get $get) => !$get('department_id'))
                             ->columnSpan(1),
 
                         // 3. COURS (UE)
@@ -129,7 +130,7 @@ class AttendanceSessionResource extends Resource
 
                                 return \App\Models\Course::where('filiere_id', $filiereId)
                                     ->get()
-                                    ->mapWithKeys(fn ($c) => [$c->id => "{$c->code} - {$c->name}"]);
+                                    ->mapWithKeys(fn($c) => [$c->id => "{$c->code} - {$c->name}"]);
                             })
                             ->searchable()
                             ->live()
@@ -140,7 +141,7 @@ class AttendanceSessionResource extends Resource
                                 }
                             })
                             ->required()
-                            ->disabled(fn (Get $get) => !$get('filiere_id'))
+                            ->disabled(fn(Get $get) => !$get('filiere_id'))
                             ->columnSpan(2),
                         Placeholder::make('warning_course_change')
                             ->label('⚠️ Attention')
@@ -170,7 +171,7 @@ class AttendanceSessionResource extends Resource
                         Select::make('teacher_id')
                             ->label('Enseignant responsable')
                             ->relationship('teacher', 'name')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->title} {$record->name}")
+                            ->getOptionLabelFromRecordUsing(fn($record) => "{$record->title} {$record->name}")
                             ->searchable()
                             ->preload()
                             ->required()
@@ -187,14 +188,14 @@ class AttendanceSessionResource extends Resource
                                     // On récupère l'ID du prof principal sélectionné au-dessus
                                     $teacherId = $get('teacher_id');
 
-                                   // On retourne tous les profs SAUF celui qui est déjà principal
-                                   if ($teacherId) {
-                                       return $query->where('teachers.id', '!=', $teacherId);
-                                   }
-                                   return $query;
-                               }
+                                    // On retourne tous les profs SAUF celui qui est déjà principal
+                                    if ($teacherId) {
+                                        return $query->where('teachers.id', '!=', $teacherId);
+                                    }
+                                    return $query;
+                                }
                             )
-                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->title} {$record->name}")
+                            ->getOptionLabelFromRecordUsing(fn($record) => "{$record->title} {$record->name}")
                             ->multiple()
                             ->preload()
                             ->columnSpan(2)
@@ -214,13 +215,18 @@ class AttendanceSessionResource extends Resource
 
 
                         // ... Vos champs Date, Heure, Salle (inchangés) ...
+                        Select::make('academic_year_id')
+                            ->label("Année Académique")
+                            ->relationship('academic_year', 'name')
+                            ->default(fn () => AcademicYear::first()->id)
+                            ->required(),
                         DatePicker::make('session_date')->default(now())->required(),
                         TimePicker::make('start_time')->default('07:30')->required(),
                         TimePicker::make('end_time')->default('10:00')->required(),
                         TextInput::make('location')->default('Amphi 700'),
                     ])
                     ->columns(3)
-                ->columnSpanFull(),
+                    ->columnSpanFull(),
             ]);
     }
 
@@ -254,7 +260,7 @@ class AttendanceSessionResource extends Resource
 // Ajoutons aussi l'enseignant car il est sur votre PDF
                 TextColumn::make('teacher.name')
                     ->label('Enseignant')
-                    ->formatStateUsing(fn ($record) => $record->teacher
+                    ->formatStateUsing(fn($record) => $record->teacher
                         ? "{$record->teacher->title} {$record->teacher->name}"
                         : 'Non assigné'
                     )

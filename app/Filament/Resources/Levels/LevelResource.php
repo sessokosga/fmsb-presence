@@ -10,6 +10,7 @@ use App\Filament\Resources\Levels\Schemas\LevelForm;
 use App\Filament\Resources\Levels\Tables\LevelsTable;
 use App\Models\Level;
 use BackedEnum;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -62,6 +63,11 @@ class LevelResource extends Resource
                     ->icon('heroicon-o-arrow-up-tray')
                     ->color('primary'),
             ])
+            ->toolbarActions(ActionGroup::make([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
+                ]),
+            ]))
             ->columns([
                 Tables\Columns\TextColumn::make('name')->label('Nom'),
                 Tables\Columns\TextColumn::make('code')->label('Code')->badge(), // Le format badge est joli pour les codes

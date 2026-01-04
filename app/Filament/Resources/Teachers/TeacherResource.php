@@ -11,6 +11,7 @@ use App\Filament\Resources\Teachers\Tables\TeachersTable;
 use App\Models\Teacher;
 use BackedEnum;
 use Filament\Actions;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\ImportAction;
 use Filament\Forms\Components;
 use Filament\Resources\Resource;
@@ -92,11 +93,16 @@ class TeacherResource extends Resource
                     ->label('Spécialité')
                     ->searchable(),
 
-                Tables\Columns\TextColumn::make('phone')
-                    ->label('Contact')
-                    ->icon('heroicon-o-phone'),
+                Tables\Columns\TextColumn::make('email')
+                    ->label('Email')
+                    ->icon('heroicon-o-envelope'),
             ])
             ->recordAction(Actions\EditAction::class)
+            ->toolbarActions(ActionGroup::make([
+                Actions\BulkActionGroup::make([
+                    Actions\DeleteBulkAction::make(),
+                ]),
+            ]))
             ->headerActions([
 //                Actions\CreateAction::make(),
                 ImportAction::make()

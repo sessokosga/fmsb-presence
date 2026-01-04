@@ -12,29 +12,42 @@ class StudentImporter extends Importer
 {
     protected static ?string $model = Student::class;
 
+    // app/Filament/Imports/StudentImporter.php
+
     public static function getColumns(): array
     {
         return [
-            ImportColumn::make('first_name')
-                ->requiredMapping(),
-            ImportColumn::make('last_name')
-                ->requiredMapping(),
-            ImportColumn::make('gender')
-                ->requiredMapping(),
-
             ImportColumn::make('matricule')
                 ->requiredMapping()
-                ->rules(['required', 'unique:students,matricule']), // Le matricule est unique
+                ->rules(['required', 'unique:students,matricule']),
+
+            ImportColumn::make('first_name')
+                ->label('Prénom')
+                ->requiredMapping(),
+
+            ImportColumn::make('last_name')
+                ->label('Nom')
+                ->requiredMapping(),
+
+            ImportColumn::make('gender')
+                ->label('Genre (M/F)')
+                ->rules(['in:M,F']),
 
             ImportColumn::make('email')
-                ->rules(['nullable', 'email']),
+                ->rules(['email']),
 
-            // Relation avec le Département via son CODE
+            ImportColumn::make('phone'),
+
+            // 👇 Relation Département (Optionnel si la filière suffit, mais bon pour la cohérence)
             ImportColumn::make('department')
+                ->relationship(resolveUsing: 'code'),
+
+            // 👇 TRES IMPORTANT : La Filière (via Code ex: 'GL')
+            ImportColumn::make('filiere')
                 ->relationship(resolveUsing: 'code')
                 ->requiredMapping(),
 
-            // Relation avec le Niveau via son CODE
+            // 👇 TRES IMPORTANT : Le Niveau (via Code ex: 'L1')
             ImportColumn::make('level')
                 ->relationship(resolveUsing: 'code')
                 ->requiredMapping(),

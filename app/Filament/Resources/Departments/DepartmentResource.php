@@ -41,7 +41,7 @@ class DepartmentResource extends Resource
                         Forms\Components\Select::make('faculty_id')
                             ->label('Faculté parente')
                             ->relationship('faculty', 'code')
-                            ->default(fn () => \App\Models\Faculty::first()?->id) // Sélection par défaut
+                            ->default(fn() => \App\Models\Faculty::first()?->id) // Sélection par défaut
                             ->searchable()
                             ->preload()
                             ->columnSpan(1)
@@ -85,9 +85,9 @@ class DepartmentResource extends Resource
                 Tables\Columns\TextColumn::make('code')
                     ->label('Code')
                     ->copyable() // Permet de cliquer pour copier le code
+                    ->badge()
                     ->searchable(),
             ])
-
             ->filters([
                 // Permet de filtrer la liste par Faculté
                 Tables\Filters\SelectFilter::make('faculty')
@@ -102,7 +102,7 @@ class DepartmentResource extends Resource
             ])
             ->recordActions([ActionGroup::make([
                 EditAction::make(),
-                ])
+            ])
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
@@ -114,8 +114,8 @@ class DepartmentResource extends Resource
     public static function getRelations(): array
     {
         return [
-                //
-            ];
+            //
+        ];
     }
 
     public static function getPages(): array
