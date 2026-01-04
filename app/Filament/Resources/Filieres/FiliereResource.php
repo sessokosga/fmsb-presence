@@ -25,8 +25,10 @@ class FiliereResource extends Resource
 {
     protected static ?string $model = Filiere::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
-
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleGroup;
+    protected static ?string $modelLabel = 'Filière';
+    protected static ?string $pluralModelLabel = 'Filières';
+    protected static ?string $navigationLabel = 'Filières';
     public static function form(Schema $schema): Schema
     {
         return $schema

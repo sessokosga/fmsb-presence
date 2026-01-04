@@ -25,8 +25,10 @@ class SemesterResource extends Resource
 {
     protected static ?string $model = Semester::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
-
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalendar;
+    protected static ?string $modelLabel = 'Semestre';
+    protected static ?string $pluralModelLabel = 'Semestres';
+    protected static ?string $navigationLabel = 'Semestres';
     public static function form(Schema $form): Schema
     {
         return $form

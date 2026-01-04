@@ -28,8 +28,10 @@ class DepartmentResource extends Resource
 {
     protected static ?string $model = Department::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
-
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingOffice;
+    protected static ?string $modelLabel = 'Département';
+    protected static ?string $pluralModelLabel = 'Départements';
+    protected static ?string $navigationLabel = 'Départements';
     public static function form(Schema $form): Schema
     {
         return $form

@@ -32,8 +32,10 @@ class AttendanceSessionResource extends Resource
 {
     protected static ?string $model = AttendanceSession::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
-
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClock;
+    protected static ?string $modelLabel = 'Séance de présence';
+    protected static ?string $pluralModelLabel = 'Séances de présence';
+    protected static ?string $navigationLabel = 'Présences'; // Plus court pour le menu
 
     public static function form(Schema $form): Schema
     {

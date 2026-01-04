@@ -27,8 +27,10 @@ use Filament\Tables;
 class FacultyResource extends Resource
 {
     protected static ?string $model = Faculty::class;
-
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static ?string $modelLabel = 'Faculté';
+    protected static ?string $pluralModelLabel = 'Facultés';
+    protected static ?string $navigationLabel = 'Facultés';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingLibrary;
 
     public static function form(Schema $schema): Schema
     {

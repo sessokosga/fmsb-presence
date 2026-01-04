@@ -26,8 +26,10 @@ class TeacherResource extends Resource
 {
     protected static ?string $model = Teacher::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
-
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedAcademicCap;
+    protected static ?string $modelLabel = 'Enseignant';
+    protected static ?string $pluralModelLabel = 'Enseignants';
+    protected static ?string $navigationLabel = 'Enseignants';
     public static function form(Schema $form): Schema
     {
         return $form
