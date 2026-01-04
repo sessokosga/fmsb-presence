@@ -28,148 +28,283 @@ class AttendancesRelationManager extends RelationManager
     {
         return $table
             ->columns([
-                // Vos colonnes (Image, Nom, Toggle...)
-                Tables\Columns\ImageColumn::make('student.avatar_url')
-                    ->label('Photo')
-                    ->circular()
-                    ->defaultImageUrl(url('/images/placeholder-student.png')),
-
+                // 1. Nom complet (Prénom + Nom) + Matricule en description
                 Tables\Columns\TextColumn::make('student.name')
                     ->label('Étudiant')
-                    ->getStateUsing(function ($record) {
-                        // On récupère l'étudiant lié
-                        $student = $record->student;
-
-                        if (! $student) return 'Étudiant introuvable';
-
-                        // ICI : remplacez par vos vrais noms de colonnes
-                        // Exemple si vous avez 'first_name' et 'last_name' :
-                        return "{$student->first_name} {$student->last_name}";
-
-                        // Ou si vous avez juste 'nom' :
-                        // return $student->nom;
-                    })
+                    ->getStateUsing(fn ($record) => "{$record->student->first_name} {$record->student->last_name}")
                     ->description(fn ($record) => $record->student->matricule ?? 'Sans matricule')
-                    ->searchable()
+                    ->searchable(['student.first_name', 'student.last_name', 'student.matricule'])
                     ->sortable(),
 
+                // 2. NOUVEAU : La Filière (ex: GL)
+                Tables\Columns\TextColumn::make('student.filiere.code')
+                    ->label('Filière')
+                    ->badge()
+                    ->color('info') // Bleu
+                    ->sortable()
+                    ->searchable(),
+
+                // 3. NOUVEAU : Le Niveau (ex: L3)
+                Tables\Columns\TextColumn::make('student.level.code')
+                    ->label('Niveau')
+                    ->badge()
+                    ->color('warning') // Orange/Jaune
+                    ->sortable(),
+
+                // 4. Le toggle pour marquer présent/absent
                 Tables\Columns\ToggleColumn::make('is_present')
                     ->label('Présence')
-                    ->onIcon('heroicon-m-check-circle') // Icône quand présent
-                    ->offIcon('heroicon-m-x-circle')   // Icône quand absent
+                    ->onIcon('heroicon-m-check-circle')
+                    ->offIcon('heroicon-m-x-circle')
                     ->onColor('success')
-                    ->offColor('danger'),
-
-                // Les colonnes cachées...
-                Tables\Columns\TextColumn::make('observation')
-                    ->label('Observation')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->offColor('danger')
+                    ->alignCenter(), // Centré pour faire plus propre sans la photo
             ])
             ->headerActions([
-                // Votre bouton "Générer la liste" ira ici
+                // 👇 LE BOUTON MIS À JOUR AVEC LA NOUVELLE LOGIQUE
                 Actions\Action::make('fill_students')
-                    ->label('Générer la liste')
-                    ->icon('heroicon-o-users')
+                    ->label('Générer la liste (Filière + Rattrapages)')
+                    ->icon('heroicon-o-user-group')
+                    ->color('primary')
                     ->requiresConfirmation()
+                    ->modalHeading('Importer les étudiants')
+                    ->modalDescription('Ceci importera les étudiants de la filière standard ainsi que ceux inscrits en rattrapage.')
                     ->action(function ($livewire) {
-                        $session = $livewire->getOwnerRecord(); // La séance actuelle
+                        $session = $livewire->getOwnerRecord();
+                        $course = $session->course;
 
-                        // On récupère le niveau du cours (ex: Niveau 4 pour MED4)
-                        // Adaptez 'level_id' si votre colonne s'appelle autrement
-                        $levelId = $session->course->level_id;
-
-                        if (! $levelId) {
-                            \Filament\Notifications\Notification::make()
-                                ->title('Erreur : Ce cours n\'est lié à aucun niveau.')
-                                ->danger()
-                                ->send();
+                        if (! $course) {
+                            \Filament\Notifications\Notification::make()->title('Erreur : Session sans cours lié.')->danger()->send();
                             return;
                         }
 
-                        // On récupère les étudiants de ce niveau
-                        $students = \App\Models\Student::where('level_id', $levelId)->get();
+                        // 1. GROUPE A : Les étudiants "Standards" (Même Filière + Même Niveau)
+                        $etudiantsStandard = \App\Models\Student::query()
+                            ->where('filiere_id', $course->filiere_id)
+                            ->where('level_id', $course->level_id)
+                            ->get();
+
+                        // 2. GROUPE B : Les étudiants en "Rattrapage" (Table pivot course_student)
+                        // (Assure-toi que la relation 'etudiantsRattrapage' existe bien dans le modèle Course)
+                        $etudiantsRattrapage = $course->etudiantsRattrapage()->get();
+
+                        // 3. FUSION : On combine les deux listes (merge évite les doublons d'IDs)
+                        $tousLesEtudiants = $etudiantsStandard->merge($etudiantsRattrapage);
+
+                        if ($tousLesEtudiants->isEmpty()) {
+                            \Filament\Notifications\Notification::make()->title('Aucun étudiant trouvé (ni filière, ni rattrapage).')->warning()->send();
+                            return;
+                        }
 
                         $count = 0;
-                        foreach ($students as $student) {
-                            // On crée l'entrée dans la table de présence
-                            $exists = \App\Models\Attendance::where('attendance_session_id', $session->id)
-                                ->where('student_id', $student->id)
-                                ->exists();
+                        foreach ($tousLesEtudiants as $student) {
+                            // firstOrCreate vérifie si l'étudiant est déjà là pour éviter les doublons
+                            $attendance = \App\Models\Attendance::firstOrCreate([
+                                'attendance_session_id' => $session->id,
+                                'student_id' => $student->id,
+                            ], [
+                                'is_present' => false,
+                                'status' => 'absent'
+                            ]);
 
-                            if (!$exists) {
-                                \App\Models\Attendance::create([
-                                    'attendance_session_id' => $session->id,
-                                    'student_id' => $student->id,
-                                    'is_present' => false, // Absent par défaut
-                                    'status' => 'absent'
-                                ]);
+                            if ($attendance->wasRecentlyCreated) {
                                 $count++;
                             }
                         }
 
                         \Filament\Notifications\Notification::make()
-                            ->title("$count étudiants ajoutés à la liste")
+                            ->title($count . ' étudiants ajoutés avec succès.')
                             ->success()
                             ->send();
                     }),
+                Actions\Action::make('reset_list')
+                    ->label('Vider la liste')
+                    ->icon('heroicon-o-trash')
+                    ->color('danger') // Rouge pour signaler le danger
+                    ->requiresConfirmation()
+                    ->modalHeading('Vider la liste de présence ?')
+                    ->modalDescription('Attention, vous allez supprimer tous les étudiants de cette liste ainsi que leur statut (présent/absent). Cette action est irréversible.')
+                    ->modalSubmitActionLabel('Oui, tout supprimer')
+                    ->action(function ($livewire) {
+                        // 1. On récupère la session
+                        $session = $livewire->getOwnerRecord();
+
+                        // 2. On compte pour l'info
+                        $count = $session->attendances()->count();
+
+                        // 3. On supprime tout via la relation (ça vide la table attendances pour cette session seulement)
+                        $session->attendances()->delete();
+
+                        // 4. Notification
+                        \Filament\Notifications\Notification::make()
+                            ->title("Liste vidée ($count étudiants retirés)")
+                            ->success()
+                            ->send();
+                    }),
+
+                // Bouton pour tout valider d'un coup
                 Actions\Action::make('mark_all_present')
                     ->label('Tout cocher présent')
-                    // 👇 Remplacez par une de ces icônes valides
                     ->icon('heroicon-o-check-badge')
                     ->color('gray')
                     ->requiresConfirmation()
-                    ->action(function (RelationManager $livewire) {
+                    ->action(function ($livewire) {
                         $session = $livewire->getOwnerRecord();
-                        // On met à jour toutes les présences d'un coup
                         $session->attendances()->update([
                             'is_present' => true,
                             'status' => 'present'
                         ]);
+                        \Filament\Notifications\Notification::make()->title('Mise à jour effectuée')->success()->send();
                     }),
             ])
-            ->actions([
-                // 👇 1. On définit l'action d'édition ici
-                Actions\EditAction::make()
-                    ->label('Note / Obs'),
-            ])
-            // 👇 2. On dit au tableau : "Quand on clique sur la ligne, lance l'action 'edit'"
+            ->recordActions(ActionGroup::make([
+                Actions\EditAction::make()->label('Note / Obs'),
+                Actions\DeleteAction::make()->label('Retirer'),
+            ]))
             ->recordAction('edit')
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_present')
                     ->label('Filtrer par présence')
-                    ->placeholder('Tous les étudiants')
                     ->trueLabel('Présents uniquement')
                     ->falseLabel('Absents uniquement'),
             ]);
     }
 
-    /*
-    public function table(Table $table): Table
-    {
-        return $table
-            ->recordTitleAttribute('student_id')
-            ->columns([
-                TextColumn::make('student_id')
-                    ->searchable(),
-            ])
-            ->filters([
-                //
-            ])
-            ->headerActions([
-                CreateAction::make(),
-                AssociateAction::make(),
-            ])
-            ->recordActions([
-                EditAction::make(),
-                DissociateAction::make(),
-                DeleteAction::make(),
-            ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    DissociateBulkAction::make(),
-                    DeleteBulkAction::make(),
-                ]),
-            ]);
-    }
-    */
+//    public function table(Table $table): Table
+//    {
+//        return $table
+//            ->columns([
+//                // Photo de l'étudiant
+//                Tables\Columns\ImageColumn::make('student.avatar_url')
+//                    ->label('Photo')
+//                    ->circular()
+//                    ->defaultImageUrl(url('/images/placeholder-student.png')),
+//
+//                // Nom complet (Prénom + Nom) + Matricule en petit
+//                Tables\Columns\TextColumn::make('student.name')
+//                    ->label('Étudiant')
+//                    ->getStateUsing(fn ($record) => "{$record->student->first_name} {$record->student->last_name}")
+//                    ->description(fn ($record) => $record->student->matricule ?? 'Sans matricule')
+//                    ->searchable(['student.first_name', 'student.last_name', 'student.matricule'])
+//                    ->sortable(),
+//
+//                // Le toggle pour marquer présent/absent rapidement
+//                Tables\Columns\ToggleColumn::make('is_present')
+//                    ->label('Présence')
+//                    ->onIcon('heroicon-m-check-circle')
+//                    ->offIcon('heroicon-m-x-circle')
+//                    ->onColor('success')
+//                    ->offColor('danger'),
+//            ])
+//            ->headerActions([
+//                // 👇 LE BOUTON MIS À JOUR AVEC LA NOUVELLE LOGIQUE
+//                Actions\Action::make('fill_students')
+//                    ->label('Générer la liste (Filière + Rattrapages)')
+//                    ->icon('heroicon-o-user-group')
+//                    ->color('primary')
+//                    ->requiresConfirmation()
+//                    ->modalHeading('Importer les étudiants')
+//                    ->modalDescription('Ceci importera les étudiants de la filière standard ainsi que ceux inscrits en rattrapage.')
+//                    ->action(function ($livewire) {
+//                        $session = $livewire->getOwnerRecord();
+//                        $course = $session->course;
+//
+//                        if (! $course) {
+//                            \Filament\Notifications\Notification::make()->title('Erreur : Session sans cours lié.')->danger()->send();
+//                            return;
+//                        }
+//
+//                        // 1. GROUPE A : Les étudiants "Standards" (Même Filière + Même Niveau)
+//                        $etudiantsStandard = \App\Models\Student::query()
+//                            ->where('filiere_id', $course->filiere_id)
+//                            ->where('level_id', $course->level_id)
+//                            ->get();
+//
+//                        // 2. GROUPE B : Les étudiants en "Rattrapage" (Table pivot course_student)
+//                        // (Assure-toi que la relation 'etudiantsRattrapage' existe bien dans le modèle Course)
+//                        $etudiantsRattrapage = $course->etudiantsRattrapage()->get();
+//
+//                        // 3. FUSION : On combine les deux listes (merge évite les doublons d'IDs)
+//                        $tousLesEtudiants = $etudiantsStandard->merge($etudiantsRattrapage);
+//
+//                        if ($tousLesEtudiants->isEmpty()) {
+//                            \Filament\Notifications\Notification::make()->title('Aucun étudiant trouvé (ni filière, ni rattrapage).')->warning()->send();
+//                            return;
+//                        }
+//
+//                        $count = 0;
+//                        foreach ($tousLesEtudiants as $student) {
+//                            // firstOrCreate vérifie si l'étudiant est déjà là pour éviter les doublons
+//                            $attendance = \App\Models\Attendance::firstOrCreate([
+//                                'attendance_session_id' => $session->id,
+//                                'student_id' => $student->id,
+//                            ], [
+//                                'is_present' => false,
+//                                'status' => 'absent'
+//                            ]);
+//
+//                            if ($attendance->wasRecentlyCreated) {
+//                                $count++;
+//                            }
+//                        }
+//
+//                        \Filament\Notifications\Notification::make()
+//                            ->title($count . ' étudiants ajoutés avec succès.')
+//                            ->success()
+//                            ->send();
+//                    }),
+//                Actions\Action::make('reset_list')
+//                    ->label('Vider la liste')
+//                    ->icon('heroicon-o-trash')
+//                    ->color('danger') // Rouge pour signaler le danger
+//                    ->requiresConfirmation()
+//                    ->modalHeading('Vider la liste de présence ?')
+//                    ->modalDescription('Attention, vous allez supprimer tous les étudiants de cette liste ainsi que leur statut (présent/absent). Cette action est irréversible.')
+//                    ->modalSubmitActionLabel('Oui, tout supprimer')
+//                    ->action(function ($livewire) {
+//                        // 1. On récupère la session
+//                        $session = $livewire->getOwnerRecord();
+//
+//                        // 2. On compte pour l'info
+//                        $count = $session->attendances()->count();
+//
+//                        // 3. On supprime tout via la relation (ça vide la table attendances pour cette session seulement)
+//                        $session->attendances()->delete();
+//
+//                        // 4. Notification
+//                        \Filament\Notifications\Notification::make()
+//                            ->title("Liste vidée ($count étudiants retirés)")
+//                            ->success()
+//                            ->send();
+//                    }),
+//
+//                // Bouton pour tout valider d'un coup
+//                Actions\Action::make('mark_all_present')
+//                    ->label('Tout cocher présent')
+//                    ->icon('heroicon-o-check-badge')
+//                    ->color('gray')
+//                    ->requiresConfirmation()
+//                    ->action(function ($livewire) {
+//                        $session = $livewire->getOwnerRecord();
+//                        $session->attendances()->update([
+//                            'is_present' => true,
+//                            'status' => 'present'
+//                        ]);
+//                        \Filament\Notifications\Notification::make()->title('Mise à jour effectuée')->success()->send();
+//                    }),
+//            ])
+//            ->recordActions(ActionGroup::make([
+//                Actions\EditAction::make()->label('Note / Obs'),
+//                Actions\DeleteAction::make()->label('Retirer'), // Utile si on veut enlever un étudiant de la liste manuellement
+//            ]))
+//            ->recordAction('edit')
+//            ->filters([
+//                Tables\Filters\TernaryFilter::make('is_present')
+//                    ->label('Filtrer par présence')
+//                    ->trueLabel('Présents uniquement')
+//                    ->falseLabel('Absents uniquement'),
+//            ]);
+//    }
+
+
 }

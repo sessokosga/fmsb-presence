@@ -12,6 +12,7 @@ use BackedEnum;
 use Filament\Actions\CreateAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
@@ -32,108 +33,149 @@ class AttendanceSessionResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
+
     public static function form(Schema $form): Schema
     {
         return $form
             ->schema([
-                Section::make('Informations Générales')
+                Section::make('Sélection du Cours')
+                    ->description('Choisissez le département et la filière pour filtrer les cours.')
                     ->schema([
-                        // 1 part : Année Académique (Par défaut l'actuelle)
-                        Select::make('academic_year_id')
-                            ->label('Année')
-                            ->relationship('academicYear', 'name')
-                            ->default(fn() => \App\Models\AcademicYear::where('is_current', true)->first()?->id)
-                            ->required()
+                        // 1. DÉPARTEMENT
+                        Select::make('department_id')
+                            ->label('Département')
+                            ->options(\App\Models\Department::all()->mapWithKeys(function ($department) {
+                                return [$department->id => "{$department->code} - {$department->name}"];
+                            }))
+                            ->searchable()
+                            ->live()
+                            // 👇 LA CORRECTION EST ICI : On remplit le champ quand on charge une session existante
+                            ->afterStateHydrated(function ($component, $record) {
+                                if ($record && $record->course) {
+                                    // On remonte : Session -> Course -> Filiere -> Department
+                                    $component->state($record->course->filiere->department_id);
+                                }
+                            })
+                            ->afterStateUpdated(function (Set $set, $state) {
+                                $set('filiere_id', null);
+                                $set('course_id', null);
+                                if ($state) {
+                                    $firstFiliere = \App\Models\Filiere::where('department_id', $state)->first();
+                                    if ($firstFiliere) {
+                                        $set('filiere_id', $firstFiliere->id);
+                                        $firstCourse = \App\Models\Course::where('filiere_id', $firstFiliere->id)->first();
+                                        if ($firstCourse) {
+                                            $set('course_id', $firstCourse->id);
+                                            if ($firstCourse->teacher_id) $set('teacher_id', $firstCourse->teacher_id);
+                                        }
+                                    }
+                                }
+                            })
+                            ->dehydrated(false)
                             ->columnSpan(1),
 
-                        // 2 parts : Unité d'Enseignement (UE)
-                        // On peut aussi mettre le premier cours par défaut pour éviter le vide
+                        // 2. FILIÈRE
+                        Select::make('filiere_id')
+                            ->label('Filière')
+                            ->options(function (Get $get, $record) {
+                                // Astuce : Si on est en train d'éditer, on prend le dept du record, sinon celui du formulaire
+                                $deptId = $get('department_id');
+
+                                // Si le formulaire est vide mais qu'on a un record, on le récupère du record
+                                if (!$deptId && $record && $record->course) {
+                                    $deptId = $record->course->filiere->department_id;
+                                }
+
+                                if (!$deptId) return [];
+
+                                return \App\Models\Filiere::where('department_id', $deptId)
+                                    ->get()
+                                    ->mapWithKeys(fn ($f) => [$f->id => "{$f->code} - {$f->name}"]);
+                            })
+                            ->searchable()
+                            ->live()
+                            // 👇 LA CORRECTION EST ICI AUSSI
+                            ->afterStateHydrated(function ($component, $record) {
+                                if ($record && $record->course) {
+                                    $component->state($record->course->filiere_id);
+                                }
+                            })
+                            ->afterStateUpdated(function (Set $set, $state) {
+                                $set('course_id', null);
+                                if ($state) {
+                                    $firstCourse = \App\Models\Course::where('filiere_id', $state)->first();
+                                    if ($firstCourse) {
+                                        $set('course_id', $firstCourse->id);
+                                        if ($firstCourse->teacher_id) $set('teacher_id', $firstCourse->teacher_id);
+                                    }
+                                }
+                            })
+                            ->dehydrated(false)
+                            ->disabled(fn (Get $get) => !$get('department_id'))
+                            ->columnSpan(1),
+
+                        // 3. COURS (UE)
                         Select::make('course_id')
                             ->label('Unité d\'Enseignement (UE)')
-                            ->relationship('course', 'code')
-                            ->default(fn() => \App\Models\Course::first()?->id)
-                            ->searchable()
-                            ->preload()
-                            ->required()
-                            ->columnSpan(1),
+                            ->options(function (Get $get, $record) {
+                                $filiereId = $get('filiere_id');
 
-                        Select::make('teacher_id')
-                            ->label('Enseignant Principal')
-                            ->relationship('teacher', 'name')
-                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->title} {$record->name}")
-                            ->searchable()
-                            ->preload()
-                            ->live() // 👈 IMPORTANT : Déclenche la mise à jour immédiate
-                            ->afterStateUpdated(function (Set $set) {
-                                // Optionnel : Si on change de prof principal, on vide la liste des moniteurs pour éviter les conflits
-                                $set('monitor_ids', []);
+                                // Récupération de secours pour l'édition
+                                if (!$filiereId && $record && $record->course) {
+                                    $filiereId = $record->course->filiere_id;
+                                }
+
+                                if (!$filiereId) return [];
+
+                                return \App\Models\Course::where('filiere_id', $filiereId)
+                                    ->get()
+                                    ->mapWithKeys(fn ($c) => [$c->id => "{$c->code} - {$c->name}"]);
                             })
-                            ->required(),
-
-                        // Dans le schema du formulaire
-                        Select::make('session_type')
-                            ->label('Type de séance')
-                            ->options([
-                                'CM' => 'Cours Magistral (CM)',
-                                'TD' => 'Travaux Dirigés (TD)',
-                                'TP' => 'Travaux Pratiques (TP)',
-                                'TPE' => 'Travail Personnel (TPE)',
-                                'CC' => 'Contrôle Continu (CC)',
-                            ])
-                            ->default('CM')
+                            ->searchable()
+                            ->live()
+                            ->afterStateUpdated(function (Set $set, $state) {
+                                $course = \App\Models\Course::find($state);
+                                if ($course && $course->teacher_id) {
+                                    $set('teacher_id', $course->teacher_id);
+                                }
+                            })
                             ->required()
-                            ->native(false) // Plus joli visuellement
+                            ->disabled(fn (Get $get) => !$get('filiere_id'))
                             ->columnSpan(2),
+                        Placeholder::make('warning_course_change')
+                            ->label('⚠️ Attention')
+                            ->content('Vous avez modifié le cours. En sauvegardant, la liste de présence actuelle sera automatiquement supprimée pour éviter les incohérences.')
+                            ->visible(function (Get $get, $record) {
+                                // On n'affiche ça que si on est en mode édition (record existe)
+                                if (!$record) return false;
 
-                        // 1 part : La Date (Aujourd'hui)
-                        DatePicker::make('session_date')
-                            ->label('Date')
-                            ->default(now())
-                            ->required()
-                            ->columnSpan(1),
+                                // On récupère la nouvelle valeur choisie
+                                $newCourseId = $get('course_id');
+
+                                // On récupère l'ancienne valeur en base
+                                $oldCourseId = $record->course_id;
+
+                                // On affiche si c'est différent ET qu'il y a déjà des présences enregistrées
+                                return ($newCourseId != $oldCourseId) && $record->attendances()->exists();
+                            })
+                            ->columnSpanFull()
+                            ->extraAttributes(['class' => 'text-danger-600 bg-danger-50 p-4 rounded-lg border border-danger-200']), // Style rouge
                     ])
                     ->columns(4)
                     ->columnSpanFull(),
 
-                Section::make('Horaires et Lieu')
+                Section::make('Détails de la séance')
                     ->schema([
-                        // Heure de début par défaut : 07:30
-                        TimePicker::make('start_time')
-                            ->label('Heure Début')
-                            ->default('07:30')
-                            ->required(),
-
-                        // Heure de fin par défaut : 10:00
-                        TimePicker::make('end_time')
-                            ->label('Heure Fin')
-                            ->default('10:00')
-                            ->required(),
-
-                        // Lieu par défaut (Amphi 700 ou autre)
-                        TextInput::make('location')
-                            ->label('Salle / Amphi')
-                            ->placeholder('ex: Amphi 700')
-                            ->default('Amphi 700'),
-                    ])
-                    ->columns(3)
-                    ->columnSpanFull(),
-
-                Fieldset::make('Détails Académiques')
-                    ->schema([
-                        // Remplacement du select statique par la relation
-                        Select::make('semester_id')
-                            ->label('Semestre')
-                            ->relationship('semester', 'name') // Suppose que votre table semestres a une colonne 'name' (ex: "Semestre 1")
+                        // L'enseignant (Pré-rempli mais modifiable)
+                        Select::make('teacher_id')
+                            ->label('Enseignant responsable')
+                            ->relationship('teacher', 'name')
+                            ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->title} {$record->name}")
                             ->searchable()
                             ->preload()
-                            ->required(),
+                            ->required()
+                            ->columnSpan(1),
 
-                        TextInput::make('week_number')
-                            ->label('N° Semaine')
-                            ->numeric()
-                            ->default(1)
-                            ->minValue(1)
-                            ->maxValue(20),
 
                         Select::make('monitor_ids')
                             ->label('Moniteurs / Suppléants')
@@ -145,21 +187,40 @@ class AttendanceSessionResource extends Resource
                                     // On récupère l'ID du prof principal sélectionné au-dessus
                                     $teacherId = $get('teacher_id');
 
-                                    // On retourne tous les profs SAUF celui qui est déjà principal
-                                    if ($teacherId) {
-                                        return $query->where('teachers.id', '!=', $teacherId);
-                                    }
-                                    return $query;
-                                }
+                                   // On retourne tous les profs SAUF celui qui est déjà principal
+                                   if ($teacherId) {
+                                       return $query->where('teachers.id', '!=', $teacherId);
+                                   }
+                                   return $query;
+                               }
                             )
                             ->getOptionLabelFromRecordUsing(fn ($record) => "{$record->title} {$record->name}")
                             ->multiple()
                             ->preload()
+                            ->columnSpan(2)
                             ->live(),
+
+                        Select::make('session_type')
+                            ->label('Type')
+                            ->options([
+                                'CM' => 'Cours Magistral',
+                                'TD' => 'Travaux Dirigés',
+                                'TP' => 'Travaux Pratiques',
+                                'CC' => 'Contrôle Continu',
+                            ])
+                            ->default('CM')
+                            ->native(false)
+                            ->required(),
+
+
+                        // ... Vos champs Date, Heure, Salle (inchangés) ...
+                        DatePicker::make('session_date')->default(now())->required(),
+                        TimePicker::make('start_time')->default('07:30')->required(),
+                        TimePicker::make('end_time')->default('10:00')->required(),
+                        TextInput::make('location')->default('Amphi 700'),
                     ])
                     ->columns(3)
                 ->columnSpanFull(),
-
             ]);
     }
 

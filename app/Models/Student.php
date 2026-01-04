@@ -25,4 +25,14 @@ class Student extends Model
     {
         return $this->belongsTo(Level::class);
     }
+
+    // Sa filière principale
+    public function filiere() {
+        return $this->belongsTo(Filiere::class);
+    }
+
+// Ses cours de rattrapage
+    public function coursRattrapage() {
+        return $this->belongsToMany(Course::class, 'course_student');
+    }
 }
